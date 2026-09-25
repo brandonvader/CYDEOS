@@ -14,8 +14,7 @@
 static ExitRecordingsFn onExitToRecorderMain = nullptr;
 
 enum RecordingsScreen { RECORDINGS_LIST,
-                         RECORDINGS_DETAIL,
-                         RECORDINGS_TRANSCRIPTION_SETTINGS };
+                         RECORDINGS_DETAIL };
 static RecordingsScreen screen = RECORDINGS_LIST;
 
 static char selectedRecordingName[40] = "";
@@ -32,8 +31,6 @@ static void goToList() {
 static void drawList() {
   tft.fillRect(0, NOTIF_BAR_H, SCREEN_W, SCREEN_H - NOTIF_BAR_H, COLOR_BG);
   drawBackButton();
-  drawTextIn("Scriberr Settings", SCREEN_W - RECORDINGS_SETTINGS_LINK_W - UI_SCALE(8), RECORDINGS_SETTINGS_LINK_W,
-             RECORDINGS_SETTINGS_LINK_Y, COLOR_AQUA_DIM);
   drawCenteredLine("Recordings", NOTIF_BAR_H + 8, COLOR_AQUA);
 
   if (recordingsListCount == 0) {
@@ -48,20 +45,9 @@ static void drawList() {
   }
 }
 
-static bool touchOnSettingsLink(int x, int y) {
-  int linkX = SCREEN_W - RECORDINGS_SETTINGS_LINK_W - UI_SCALE(8);
-  return x >= linkX && x <= linkX + RECORDINGS_SETTINGS_LINK_W &&
-         y >= RECORDINGS_SETTINGS_LINK_Y - 10 && y <= RECORDINGS_SETTINGS_LINK_Y + RECORDINGS_SETTINGS_LINK_H;
-}
-
 static void handleListTouch(int x, int y) {
   if (handleBackButtonTouch(x, y)) {
     if (onExitToRecorderMain) onExitToRecorderMain();
-    return;
-  }
-  if (touchOnSettingsLink(x, y)) {
-    screen = RECORDINGS_TRANSCRIPTION_SETTINGS;
-    enterTranscriptionSettings();
     return;
   }
   if (recordingsListCount == 0) return;
@@ -156,7 +142,6 @@ void redrawRecordingsDetailScreenIfShowing() {
 
 void recordingsScreenInit(ExitRecordingsFn onExit) {
   onExitToRecorderMain = onExit;
-  transcriptionSettingsInit(goToList);
 }
 
 void enterRecordingsScreen() {
@@ -169,6 +154,5 @@ void recordingsHandleTouch(int x, int y) {
   switch (screen) {
     case RECORDINGS_LIST: handleListTouch(x, y); break;
     case RECORDINGS_DETAIL: handleDetailTouch(x, y); break;
-    case RECORDINGS_TRANSCRIPTION_SETTINGS: transcriptionHandleTouch(x, y); break;
   }
 }

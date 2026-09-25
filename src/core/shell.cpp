@@ -108,19 +108,13 @@ static void updateBrightnessFromTouch(int x) {
 // ---------------------------------------------------------------------
 // Launcher + Settings app (WiFi/Time tiles)
 // ---------------------------------------------------------------------
-static void drawLauncherTile(int y, const char *label, uint16_t color) {
-  tft.fillRoundRect(LAUNCHER_TILE_X, y, LAUNCHER_TILE_W, LAUNCHER_TILE_H, 12, lerp565(COLOR_BG, color, 0.15f));
-  tft.drawRoundRect(LAUNCHER_TILE_X, y, LAUNCHER_TILE_W, LAUNCHER_TILE_H, 12, color);
-  drawCenteredLine(label, y + LAUNCHER_TILE_H / 2 - 8, COLOR_WHITE);
-}
-
 static void switchToApp(ActiveApp app);
 
 static void drawLauncher() {
   tft.fillRect(0, NOTIF_BAR_H, SCREEN_W, SCREEN_H - NOTIF_BAR_H, COLOR_BG);
   drawCenteredLine("Apps", NOTIF_BAR_H + 24, COLOR_AQUA);
-  drawLauncherTile(LAUNCHER_TILE1_Y, "Recorder", COLOR_RED);
-  drawLauncherTile(LAUNCHER_TILE2_Y, "Settings", COLOR_AQUA_DIM);
+  drawMenuTile(LAUNCHER_TILE1_Y, "Recorder", COLOR_RED);
+  drawMenuTile(LAUNCHER_TILE2_Y, "Settings", COLOR_AQUA_DIM);
 }
 
 static void handleLauncherTouch(int x, int y) {
@@ -135,8 +129,8 @@ static void handleLauncherTouch(int x, int y) {
 static void drawSettingsHome() {
   tft.fillRect(0, NOTIF_BAR_H, SCREEN_W, SCREEN_H - NOTIF_BAR_H, COLOR_BG);
   drawCenteredLine("Settings", NOTIF_BAR_H + 24, COLOR_AQUA);
-  drawLauncherTile(LAUNCHER_TILE1_Y, "WiFi", COLOR_AQUA_DIM);
-  drawLauncherTile(LAUNCHER_TILE2_Y, "Time", COLOR_AQUA_DIM);
+  drawMenuTile(LAUNCHER_TILE1_Y, "WiFi", COLOR_AQUA_DIM);
+  drawMenuTile(LAUNCHER_TILE2_Y, "Time", COLOR_AQUA_DIM);
 }
 
 static void goToSettingsHome() {
@@ -303,7 +297,11 @@ void shellTick() {
   if (touched && !wasTouched && millis() - lastTouchMs > SHADE_TOUCH_DEBOUNCE_MS) {
     lastTouchMs = millis();
     Serial.printf("touch trigger at x=%u y=%u\n", tx, ty);
-    if (ty >= BOTTOM_EDGE_ZONE_Y) {
+    // The bottom corners are excluded (see BOTTOM_EDGE_SWIPE_MARGIN_X) so
+    // an app's own corner buttons there still receive a normal tap.
+    bool inSwipeZone = ty >= BOTTOM_EDGE_ZONE_Y &&
+                        tx >= BOTTOM_EDGE_SWIPE_MARGIN_X && tx <= SCREEN_W - BOTTOM_EDGE_SWIPE_MARGIN_X;
+    if (inSwipeZone) {
       gestureMode = GESTURE_BOTTOM_SWIPE;
       gestureStartY = ty;
     } else {

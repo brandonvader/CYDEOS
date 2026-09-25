@@ -13,7 +13,26 @@
 #define FREESPACE_BAR_H UI_SCALE(40)
 
 #define SPECTRUM_Y (FREESPACE_BAR_Y + FREESPACE_BAR_H + UI_SCALE(20))
-#define SPECTRUM_H (SCREEN_H - SPECTRUM_Y - UI_SCALE(20))
+
+// Bottom corner icon buttons (Recordings folder / Recorder Settings
+// hamburger) - anchored flush into the screen's own bottom-left/
+// bottom-right corners (no margin), "fenced" in by drawing only the top,
+// chamfer, and inner edges (see recorder_ui.cpp) - the outer side edge
+// and bottom edge are the screen's own physical edges, so drawing a
+// border there would be redundant. RECORDER_ICON_BTN_SIZE must stay in
+// sync with core/ui_widgets.h's BOTTOM_EDGE_SWIPE_MARGIN_X, which reserves
+// these same corners from starting the swipe-up-to-launcher gesture.
+//
+// The spectrum area is shortened to end above this row rather than having
+// it float on top of the buttons, since the spectrum redraws live during
+// recording and would otherwise need to carefully avoid painting over
+// them on every single frame.
+#define RECORDER_ICON_BTN_SIZE UI_SCALE(44)
+#define RECORDER_ICON_BTN_Y (SCREEN_H - RECORDER_ICON_BTN_SIZE)
+#define RECORDER_FOLDER_BTN_X 0
+#define RECORDER_SETTINGS_BTN_X (SCREEN_W - RECORDER_ICON_BTN_SIZE)
+
+#define SPECTRUM_H (RECORDER_ICON_BTN_Y - UI_SCALE(10) - SPECTRUM_Y)
 
 // Recordings browser - detail screen (name/size/duration/date + upload button).
 #define REC_DETAIL_NAME_Y (NOTIF_BAR_H + UI_SCALE(40))
@@ -23,19 +42,6 @@
 #define REC_DETAIL_UPLOAD_BTN_Y (REC_DETAIL_DATE_Y + UI_SCALE(40))
 #define REC_DETAIL_UPLOAD_BTN_H UI_SCALE(50)
 #define REC_DETAIL_STATUS_Y (REC_DETAIL_UPLOAD_BTN_Y + REC_DETAIL_UPLOAD_BTN_H + UI_SCALE(30))
-
-// Recordings list screen - small top-right link into transcription
-// settings, same row as the screen's own back button (top-left).
-#define RECORDINGS_SETTINGS_LINK_Y (NOTIF_BAR_H + UI_SCALE(6))
-#define RECORDINGS_SETTINGS_LINK_W UI_SCALE(140)
-#define RECORDINGS_SETTINGS_LINK_H UI_SCALE(26)
-
-// Recorder main screen - small top-left link into the Recordings browser
-// (there's no back button competing for that spot on this screen).
-#define RECORDER_RECORDINGS_LINK_X UI_SCALE(8)
-#define RECORDER_RECORDINGS_LINK_Y (NOTIF_BAR_H + UI_SCALE(6))
-#define RECORDER_RECORDINGS_LINK_W UI_SCALE(110)
-#define RECORDER_RECORDINGS_LINK_H UI_SCALE(26)
 
 // Transcription (Scriberr) settings screen - three tap-to-edit fields.
 #define TRANSCRIPTION_HOST_Y (NOTIF_BAR_H + UI_SCALE(70))

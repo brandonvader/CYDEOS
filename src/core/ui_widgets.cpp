@@ -68,6 +68,12 @@ void drawCheckbox(int x, int y, bool checked) {
   }
 }
 
+void drawMenuTile(int y, const char *label, uint16_t color) {
+  tft.fillRoundRect(LAUNCHER_TILE_X, y, LAUNCHER_TILE_W, LAUNCHER_TILE_H, 12, lerp565(COLOR_BG, color, 0.15f));
+  tft.drawRoundRect(LAUNCHER_TILE_X, y, LAUNCHER_TILE_W, LAUNCHER_TILE_H, 12, color);
+  drawCenteredLine(label, y + LAUNCHER_TILE_H / 2 - 8, COLOR_WHITE);
+}
+
 void drawListRow(int index, const char *label, bool selected, bool showDot) {
   int y = ROW_LIST_Y + index * ROW_H;
   uint16_t rowBg = selected ? lerp565(COLOR_BG, COLOR_AQUA, 0.15f) : COLOR_BG;

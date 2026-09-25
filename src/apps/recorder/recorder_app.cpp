@@ -16,7 +16,9 @@
 #include "core/ui_widgets.h"
 
 enum RecorderScreen { RECORDER_MAIN,
-                       RECORDER_RECORDINGS };
+                       RECORDER_RECORDINGS,
+                       RECORDER_SETTINGS_MENU,
+                       RECORDER_TRANSCRIPTION };
 static RecorderScreen screen = RECORDER_MAIN;
 
 // True only while this app is the foreground app - gates the spectrum's
@@ -26,18 +28,13 @@ static RecorderScreen screen = RECORDER_MAIN;
 static bool foreground = false;
 
 // ---------------------------------------------------------------------
-// Main screen: record/pause buttons + a small link into the Recordings
-// browser.
+// Main screen: record/pause buttons + the bottom icon-button row
+// (Recordings folder / Recorder Settings hamburger - drawn as part of
+// drawRecorderMainScreen() itself, see recorder_ui.cpp).
 // ---------------------------------------------------------------------
-static void drawRecordingsLink() {
-  drawTextIn("Recordings", RECORDER_RECORDINGS_LINK_X, RECORDER_RECORDINGS_LINK_W,
-             RECORDER_RECORDINGS_LINK_Y, COLOR_AQUA_DIM);
-}
-
 static void enterMain() {
   screen = RECORDER_MAIN;
   drawRecorderMainScreen();
-  drawRecordingsLink();
 }
 
 static void onRecordTapped() {
@@ -75,15 +72,20 @@ static void onPauseTapped() {
   renderButtons();
 }
 
-static bool touchOnRecordingsLink(int x, int y) {
-  return x >= RECORDER_RECORDINGS_LINK_X && x <= RECORDER_RECORDINGS_LINK_X + RECORDER_RECORDINGS_LINK_W &&
-         y >= RECORDER_RECORDINGS_LINK_Y - 10 && y <= RECORDER_RECORDINGS_LINK_Y + RECORDER_RECORDINGS_LINK_H;
+static bool touchInSquare(int x, int y, int btnX, int btnY, int size) {
+  return x >= btnX && x <= btnX + size && y >= btnY && y <= btnY + size;
 }
 
+static void goToSettingsMenu();
+
 static void handleMainTouch(int x, int y) {
-  if (touchOnRecordingsLink(x, y)) {
+  if (touchInSquare(x, y, RECORDER_FOLDER_BTN_X, RECORDER_ICON_BTN_Y, RECORDER_ICON_BTN_SIZE)) {
     screen = RECORDER_RECORDINGS;
     enterRecordingsScreen();
+    return;
+  }
+  if (touchInSquare(x, y, RECORDER_SETTINGS_BTN_X, RECORDER_ICON_BTN_Y, RECORDER_ICON_BTN_SIZE)) {
+    goToSettingsMenu();
     return;
   }
 
@@ -106,6 +108,38 @@ static void goToRecorderMain() {
 }
 
 // ---------------------------------------------------------------------
+// Recorder Settings menu - a small selection screen for recorder-specific
+// settings, reached via the bottom-right hamburger button. Only one entry
+// today (transcription/Scriberr); the point of this screen existing at
+// all, rather than jumping straight to transcription settings, is to
+// leave room for future recorder-specific settings without needing new
+// navigation later.
+// ---------------------------------------------------------------------
+static void drawSettingsMenu() {
+  tft.fillRect(0, NOTIF_BAR_H, SCREEN_W, SCREEN_H - NOTIF_BAR_H, COLOR_BG);
+  drawBackButton();
+  drawCenteredLine("Recorder Settings", NOTIF_BAR_H + 24, COLOR_AQUA);
+  drawMenuTile(LAUNCHER_TILE1_Y, "Scriberr", COLOR_AQUA_DIM);
+}
+
+static void handleSettingsMenuTouch(int x, int y) {
+  if (handleBackButtonTouch(x, y)) {
+    goToRecorderMain();
+    return;
+  }
+  if (x < LAUNCHER_TILE_X || x > LAUNCHER_TILE_X + LAUNCHER_TILE_W) return;
+  if (y >= LAUNCHER_TILE1_Y && y <= LAUNCHER_TILE1_Y + LAUNCHER_TILE_H) {
+    screen = RECORDER_TRANSCRIPTION;
+    enterTranscriptionSettings();
+  }
+}
+
+static void goToSettingsMenu() {
+  screen = RECORDER_SETTINGS_MENU;
+  drawSettingsMenu();
+}
+
+// ---------------------------------------------------------------------
 // CydeosApp interface
 // ---------------------------------------------------------------------
 static void onStart() {
@@ -118,10 +152,11 @@ static void onStop() {
 }
 
 static void onTouch(int x, int y) {
-  if (screen == RECORDER_MAIN) {
-    handleMainTouch(x, y);
-  } else {
-    recordingsHandleTouch(x, y);
+  switch (screen) {
+    case RECORDER_MAIN: handleMainTouch(x, y); break;
+    case RECORDER_RECORDINGS: recordingsHandleTouch(x, y); break;
+    case RECORDER_SETTINGS_MENU: handleSettingsMenuTouch(x, y); break;
+    case RECORDER_TRANSCRIPTION: transcriptionHandleTouch(x, y); break;
   }
 }
 
@@ -265,6 +300,7 @@ void recorderAudioBringup() {
 
 void recorderFinishSetup() {
   recordingsScreenInit(goToRecorderMain);
+  transcriptionSettingsInit(goToSettingsMenu);
   loadTranscriptionSettings();
 
   delay(1500); // let SD power stabilize after a fresh power-up

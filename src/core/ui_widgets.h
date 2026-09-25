@@ -59,8 +59,14 @@
 #define SLIDER_HANDLE_R UI_SCALE(14)
 #define SLIDER_HIT_MARGIN UI_SCALE(20)
 
-// Bottom-edge swipe-up-to-launcher gesture zone.
+// Bottom-edge swipe-up-to-launcher gesture zone. The two bottom corners
+// (width BOTTOM_EDGE_SWIPE_MARGIN_X each) are excluded from starting this
+// gesture, reserved for an app's own corner buttons (e.g. the Recorder
+// app's folder/settings buttons - see recorder_layout.h, which must keep
+// its button size in sync with this margin) - swiping still works from
+// the wide middle portion of the bottom edge.
 #define BOTTOM_EDGE_ZONE_Y (SCREEN_H - UI_SCALE(20))
+#define BOTTOM_EDGE_SWIPE_MARGIN_X UI_SCALE(44)
 #define SWIPE_UP_THRESHOLD UI_SCALE(50)
 
 // Generic text-entry field (WiFi password, Scriberr fields, etc.)
@@ -103,3 +109,10 @@ void drawCheckbox(int x, int y, bool checked);
 // Generic vertical list row background/selection highlight, shared by the
 // timezone picker, saved-networks list, and Recordings list.
 void drawListRow(int index, const char *label, bool selected, bool showDot);
+
+// A launcher-style tile: rounded rect, tinted fill, centered label. Shared
+// by the shell's own Launcher/Settings-home screens and any app's own
+// small selection menu (e.g. the Recorder app's Settings menu) - `y` is
+// the only thing that varies per tile; x/width/height are the shared
+// LAUNCHER_TILE_* constants above.
+void drawMenuTile(int y, const char *label, uint16_t color);

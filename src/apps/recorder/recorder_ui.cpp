@@ -10,6 +10,66 @@
 #include "core/display.h"
 #include "core/ui_widgets.h"
 
+// ---------------------------------------------------------------------
+// Bottom corner icon buttons: "fenced" into the screen's own bottom
+// corners rather than drawn as a free-floating box - only the top edge,
+// the chamfer (the corner nearest the *other* button, cut at 45deg so the
+// pair reads as a matched set), and the inner edge (facing back toward
+// the rest of the screen) are drawn. The outer side edge and the bottom
+// edge are deliberately never drawn: they sit exactly on the display's
+// own physical edges (RECORDER_FOLDER_BTN_X/RECORDER_SETTINGS_BTN_X and
+// RECORDER_ICON_BTN_Y+SIZE=SCREEN_H - see recorder_layout.h), so a border
+// there would just be a redundant line right at the bezel.
+// ---------------------------------------------------------------------
+static void drawIconButtonFence(int x, int y, int size, bool chamferOnLeft) {
+  int chamfer = size / 4;
+  int bottom = y + size;
+  if (chamferOnLeft) {
+    // Inner edge on the left, chamfer cuts the top-left corner.
+    tft.drawFastHLine(x + chamfer, y, size - chamfer, COLOR_AQUA);       // top
+    tft.drawLine(x, y + chamfer, x + chamfer, y, COLOR_AQUA);            // chamfer
+    tft.drawFastVLine(x, y + chamfer, bottom - (y + chamfer), COLOR_AQUA); // inner
+  } else {
+    // Inner edge on the right, chamfer cuts the top-right corner.
+    tft.drawFastHLine(x, y, size - chamfer, COLOR_AQUA);                          // top
+    tft.drawLine(x + size - chamfer, y, x + size, y + chamfer, COLOR_AQUA);       // chamfer
+    tft.drawFastVLine(x + size, y + chamfer, bottom - (y + chamfer), COLOR_AQUA); // inner
+  }
+}
+
+static void drawFolderIcon(int cx, int cy, int size, uint16_t color) {
+  int w = size, h = (size * 3) / 4;
+  int x = cx - w / 2;
+  int y = cy - h / 2 + size / 10; // nudge down slightly to leave room for the tab above
+  int tabW = (w * 2) / 5;
+  int tabH = h / 4;
+  tft.fillRoundRect(x, y - tabH + 2, tabW, tabH, 1, color);
+  tft.drawRoundRect(x, y, w, h, 2, color);
+}
+
+static void drawHamburgerIcon(int cx, int cy, int size, uint16_t color) {
+  int w = size;
+  int x = cx - w / 2;
+  int gap = size / 3;
+  tft.fillRect(x, cy - gap, w, 2, color);
+  tft.fillRect(x, cy, w, 2, color);
+  tft.fillRect(x, cy + gap, w, 2, color);
+}
+
+// The left (folder -> Recordings) and right (hamburger -> Recorder
+// Settings) buttons - the folder's inner corner is top-right, the
+// hamburger's is top-left, so they chamfer toward each other.
+static void drawRecorderIconButtons() {
+  int cy = RECORDER_ICON_BTN_Y + RECORDER_ICON_BTN_SIZE / 2;
+  int iconSize = (RECORDER_ICON_BTN_SIZE * 5) / 10;
+
+  drawIconButtonFence(RECORDER_FOLDER_BTN_X, RECORDER_ICON_BTN_Y, RECORDER_ICON_BTN_SIZE, false);
+  drawFolderIcon(RECORDER_FOLDER_BTN_X + RECORDER_ICON_BTN_SIZE / 2, cy, iconSize, COLOR_AQUA);
+
+  drawIconButtonFence(RECORDER_SETTINGS_BTN_X, RECORDER_ICON_BTN_Y, RECORDER_ICON_BTN_SIZE, true);
+  drawHamburgerIcon(RECORDER_SETTINGS_BTN_X + RECORDER_ICON_BTN_SIZE / 2, cy, iconSize, COLOR_AQUA);
+}
+
 static void drawRecordIcon(int cx, int cy, uint16_t color) {
   tft.fillCircle(cx, cy, 20, color);
 }
@@ -173,4 +233,5 @@ void drawRecorderMainScreen() {
   renderButtons();
   drawFreeSpaceBar();
   refreshRecorderSpectrumArea();
+  drawRecorderIconButtons();
 }
