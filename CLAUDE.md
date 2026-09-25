@@ -602,18 +602,51 @@ install platformio`, then create the two wrapper scripts (each just
 
 ## BLE testing from this host
 
-`scripts/ble_test.py [scan_timeout_seconds]` (uses `bleak`, installed in the
-same `~/.platformio-venv`) validates what's checkable without a phone:
-device discoverable as `CYDEOS-XXXX`, GATT service/characteristic UUIDs
-match `CYDEOS Companion Spec.md` exactly, and writing to the Command
-characteristic without pairing doesn't silently succeed. It deliberately
-does **not** attempt full BLE passkey pairing — that needs a registered
-BlueZ pairing agent capable of keyboard entry, which isn't set up on this
-host. Full pairing + command/status round-trip validation needs the real
-CYDEOS Companion Android app.
-If a stalled unpaired-write test leaves the device stuck `Connected: yes`
-in `bluetoothctl`, `bluetoothctl disconnect <MAC>` clears it (the ESP32
-resumes advertising on disconnect).
+`scripts/ble_test.py [scan_timeout_seconds] [name_substring]` (uses
+`bleak`, installed in the same `~/.platformio-venv`) validates what's
+checkable without a phone: device discoverable as `CYDEOS-XXXX`, GATT
+service/characteristic UUIDs match `CYDEOS Companion Spec.md` exactly, and
+writing to the Command characteristic with no human confirming a pairing
+passkey doesn't silently succeed. Full pairing + command/status
+round-trip validation still needs the real CYDEOS Companion Android app.
+
+- **With no BlueZ pairing agent registered at all, an unattended write
+  succeeds anyway — this is BlueZ's own fallback behavior, not a firmware
+  bug, and it silently defeats this exact security test.** Confirmed on
+  real hardware, reproducibly, on **both boards**, even across a full
+  `bluetoothd` restart (ruling out stale per-process agent state): with no
+  agent registered, BlueZ reports "NoInputNoOutput" I/O capability to any
+  peer, which the Bluetooth SMP pairing-method table resolves to **Just
+  Works** against our peripheral's `DisplayOnly` capability — regardless
+  of the `MITM`/bonding/secure-connections flags our firmware requests via
+  `setSecurityAuth(true, true, true)`. Pairing completes with zero human
+  confirmation (`"BLE pairing succeeded"` in the device's own serial log,
+  no passkey ever shown), and the write then legitimately succeeds over
+  that now-encrypted link. The script's own original comment ("stalls
+  waiting for a pairing agent that isn't there") assumed this BlueZ
+  version would fail-closed with no agent present; it doesn't — it
+  fails-open. **Fixed** by having the script register its own throwaway
+  `org.bluez.Agent1` (capability `KeyboardOnly`, so Passkey Entry is
+  negotiated instead of Just Works) whose callbacks always reject —
+  restoring the test's actual intent: no human present to read/enter the
+  code means pairing must not complete on its own, on any host.
+- **A prior successful pairing (e.g. from an earlier accidentally-passing
+  test run, or real phone testing) leaves a real, persistent bond on both
+  sides that BlueZ will silently reuse for a write's security upgrade
+  without renegotiating at all — the registered rejecting agent above is
+  then never even called, and the write "succeeds" for a reason that has
+  nothing to do with the security gate.** This is what made the
+  agent-registration fix initially appear to do nothing on retest. Fixed
+  by having the script `bluetoothctl remove <address>` the device before
+  connecting each run (best-effort — harmless if there's no existing
+  bond), then re-scanning: `remove` unregisters BlueZ's whole `Device`
+  object, not just its bond, so the previously-found device handle is
+  stale afterward and needs rediscovering from the still-arriving
+  advertisements before a fresh connect.
+- If a stalled write leaves the device stuck `Connected: yes` in
+  `bluetoothctl`, `bluetoothctl disconnect <MAC>` clears it (the ESP32
+  resumes advertising on disconnect) — the script's own bond-removal step
+  now does this as a side effect on every run anyway.
 
 ## Serial monitor / reading device output
 
