@@ -14,9 +14,21 @@
 // ---------------------------------------------------------------------
 // App shell state
 // ---------------------------------------------------------------------
-enum ActiveApp { APP_LAUNCHER,
+enum ActiveApp { APP_RECORDER,
+                  APP_LAUNCHER,
                   APP_SETTINGS };
-static ActiveApp activeApp = APP_LAUNCHER;
+static ActiveApp activeApp = APP_RECORDER;
+
+// The Recorder app registers itself here - see shellRegisterRecorderApp().
+// Deliberately typed as the generic core/app.h interface, not a
+// recorder-specific type: the shell doesn't otherwise know or care that
+// this happens to be the recorder. recorderBackgroundTick is the one
+// genuinely recorder-specific exception (see its declaration below) - the
+// "keeps recording regardless of which app is on screen" behavior the
+// spec calls out as an OS-level special case, not a general app
+// capability every app gets.
+static const CydeosApp *recorderApp = nullptr;
+static void (*recorderBackgroundTick)() = nullptr;
 
 enum SettingsTopScreen { SETTINGS_HOME,
                           SETTINGS_WIFI,
@@ -107,14 +119,15 @@ static void switchToApp(ActiveApp app);
 static void drawLauncher() {
   tft.fillRect(0, NOTIF_BAR_H, SCREEN_W, SCREEN_H - NOTIF_BAR_H, COLOR_BG);
   drawCenteredLine("Apps", NOTIF_BAR_H + 24, COLOR_AQUA);
-  // TODO(M1): add the Recorder tile back (and default-boot into it) once
-  // the Recorder app exists - see CYDEOS Spec.md milestone M1.
-  drawLauncherTile(LAUNCHER_TILE1_Y, "Settings", COLOR_AQUA_DIM);
+  drawLauncherTile(LAUNCHER_TILE1_Y, "Recorder", COLOR_RED);
+  drawLauncherTile(LAUNCHER_TILE2_Y, "Settings", COLOR_AQUA_DIM);
 }
 
 static void handleLauncherTouch(int x, int y) {
   if (x < LAUNCHER_TILE_X || x > LAUNCHER_TILE_X + LAUNCHER_TILE_W) return;
   if (y >= LAUNCHER_TILE1_Y && y <= LAUNCHER_TILE1_Y + LAUNCHER_TILE_H) {
+    switchToApp(APP_RECORDER);
+  } else if (y >= LAUNCHER_TILE2_Y && y <= LAUNCHER_TILE2_Y + LAUNCHER_TILE_H) {
     switchToApp(APP_SETTINGS);
   }
 }
@@ -147,8 +160,18 @@ static void enterSettingsApp() {
 }
 
 static void switchToApp(ActiveApp app) {
+  if (activeApp == APP_RECORDER && app != APP_RECORDER && recorderApp && recorderApp->onStop) {
+    recorderApp->onStop();
+  }
   activeApp = app;
-  if (app == APP_LAUNCHER) {
+  if (app == APP_RECORDER) {
+    if (recorderApp && recorderApp->onStart) {
+      recorderApp->onStart();
+    } else {
+      drawLauncher(); // defensive - no recorder registered, don't show a blank screen
+      activeApp = APP_LAUNCHER;
+    }
+  } else if (app == APP_LAUNCHER) {
     drawLauncher();
   } else if (app == APP_SETTINGS) {
     enterSettingsApp();
@@ -203,7 +226,9 @@ static void handleTouchDown(int x, int y) {
     return;
   }
 
-  if (activeApp == APP_LAUNCHER) {
+  if (activeApp == APP_RECORDER) {
+    if (recorderApp && recorderApp->onTouch) recorderApp->onTouch(x, y);
+  } else if (activeApp == APP_LAUNCHER) {
     handleLauncherTouch(x, y);
   } else if (activeApp == APP_SETTINGS) {
     handleSettingsTouch(x, y);
@@ -213,16 +238,23 @@ static void handleTouchDown(int x, int y) {
 // ---------------------------------------------------------------------
 // Public entry points
 // ---------------------------------------------------------------------
+void shellRegisterRecorderApp(const CydeosApp *app, void (*backgroundTick)()) {
+  recorderApp = app;
+  recorderBackgroundTick = backgroundTick;
+}
+
 void shellInit() {
   wifiInit(goToSettingsHome);
   clockInit(goToSettingsHome);
 
-  BleCompanionHooks noHooks; // every field defaults to nullptr - M1's Recorder app registers real ones
-  bleCompanionInit(noHooks);
+  // Not set here anymore - the Recorder app (if registered) sets its own
+  // real hooks via bleCompanionInit() before calling
+  // shellRegisterRecorderApp(). If nothing registered, BLE commands still
+  // correctly reply BLE_ERR_NOT_IMPLEMENTED (ble_companion.cpp's default).
 
   updateBatteryStatus(); // seed a real reading before the first draw below
   drawNotifBar(true);
-  switchToApp(APP_LAUNCHER);
+  switchToApp(APP_RECORDER); // boots straight into the recorder, per CYDEOS Spec.md
   bleCompanionSetup();
 }
 
@@ -306,7 +338,13 @@ void shellTick() {
   if (activeApp == APP_SETTINGS) {
     if (settingsTopScreen == SETTINGS_WIFI) wifiTick();
     if (settingsTopScreen == SETTINGS_TIME) clockTick();
+  } else if (activeApp == APP_RECORDER && recorderApp && recorderApp->onTick) {
+    recorderApp->onTick();
   }
+
+  // Keeps recording regardless of which app is on screen - see
+  // shellRegisterRecorderApp()'s doc comment.
+  if (recorderBackgroundTick) recorderBackgroundTick();
 
   // BLE control works from any app (not gated on Settings being active).
   bleCompanionTick();

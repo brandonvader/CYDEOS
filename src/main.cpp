@@ -1,15 +1,17 @@
 // CYDEOS entry point.
 //
-// M0 status: the OS core services (shell/notification bar/settings shade,
-// WiFi, BLE Companion transport, battery, clock) are ported and live under
-// src/core/. There is no Recorder app yet (that's M1 - see CYDEOS
-// Spec.md), so setup() below skips I2S/SD/mic bring-up entirely and the
-// launcher only offers Settings. Re-verify each hardware finding in
-// CLAUDE.md as SD/I2S/mic code actually gets ported back in for M1.
+// M1 status: the OS core services (src/core/) plus the Recorder app
+// (src/apps/recorder/, with the Recordings browser and Scriberr upload
+// folded in - see CYDEOS Spec.md) are both ported. setup()'s ordering
+// below is load-bearing, not arbitrary - see CLAUDE.md before rearranging
+// it: I2S bring-up + channel calibration must happen before tft.init(),
+// and the SD card must not be mounted until after that calibration read
+// completes.
 
 #include <Arduino.h>
 #include <WiFi.h>
 
+#include "apps/recorder/recorder_app.h"
 #include "boards/board_config.h"
 #include "core/clock.h"
 #include "core/display.h"
@@ -27,6 +29,8 @@ void setup() {
   setupClock();
   WiFi.mode(WIFI_OFF); // stays off until the user enables it in Settings
 
+  recorderAudioBringup(); // I2S/codec bring-up + channel calibration - before tft.init(), see CLAUDE.md
+
   tft.init();
   tft.setRotation(DISPLAY_ROTATION);
   tft.fillScreen(COLOR_BG);
@@ -36,9 +40,16 @@ void setup() {
   setupBacklight();
   setupTouch();
 
-  shellInit();
+  recorderFinishSetup(); // SD mount, BLE hooks, transcription settings - after touch, before shellInit()
+  shellRegisterRecorderApp(recorderAppInterface(), recorderBackgroundTick);
+  shellInit(); // draws the initial screen (boots into the Recorder app), starts BLE advertising
 
-  Serial.println("CYDEOS core up (no apps yet - see CYDEOS Spec.md milestone M1)");
+  Serial.println("CYDEOS core up");
+
+  // Deliberately after shellInit() so the UI is already up and
+  // interactive - a slow analysis pass shouldn't block the whole device
+  // from being usable at boot. See CLAUDE.md.
+  recorderAnalyzeMostRecentIfPresent();
 }
 
 void loop() {

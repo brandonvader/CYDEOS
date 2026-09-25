@@ -1,10 +1,11 @@
 # CYDEOS — Cheap Yellow Display Extendable Operating System
 
-**Status: M0 done, no apps yet.** The OS core services (shell/notification
-bar/settings shade, WiFi, BLE Companion transport, battery, clock) are
-ported and boot on both boards — see `CYDEOS Spec.md` for the full
-architecture and milestone plan. There is no Recorder app yet (M1): the
-launcher only offers Settings for now. This repo is the next step after
+**Status: M0 + M1 done.** The OS core services (shell/notification
+bar/settings shade, WiFi, BLE Companion transport, battery, clock) and the
+Recorder app (recording, spectrum visualizer, Recordings browser, Scriberr
+upload) are both ported and build clean on both boards — see
+`CYDEOS Spec.md` for the full architecture and milestone plan. This repo
+is the next step after
 [CYD Voice Recorder](https://github.com/brandonvader/CYD-Voice-Recorder),
 which stays as its own clean, working reference (and the source of every
 hardware finding this project inherits).
@@ -42,10 +43,14 @@ src/
               battery       - sampling/trend/status/icon
               wifi          - Settings > WiFi (scan/connect/saved networks)
               ble_companion - pairing/GATT/framed protocol/transfer session,
-                              with hooks an app registers into (none yet)
+                              with hooks an app registers into
               shell         - notif bar, settings shade, gestures, launcher,
-                              Settings app's WiFi/Time top-level navigation
-  apps/     built-in apps, recorder first (not yet implemented — M1)
+                              Settings app's WiFi/Time top-level navigation,
+                              the CydeosApp registration slot for Recorder
+              app           - the CydeosApp lifecycle interface
+  apps/
+    recorder/ (M1, done) - recording, spectrum visualizer, Recordings
+              browser, Scriberr upload/settings - see its own README.md
 ```
 
 ## Building
@@ -64,9 +69,10 @@ pio run -e cyd -t upload
 - `CYDEOS Spec.md` — architecture, decisions, open risks, milestones.
 - `CLAUDE.md` — hardware findings inherited from CYD-Voice-Recorder,
   re-scoped for this repo's layout; re-verify each item as it's ported.
-- `CYDEOS Companion Spec.md` — BLE Companion protocol, v1 (recorder-only)
-  as implemented in CYD-Voice-Recorder; v2 (generalized app control) is
-  drafted in `CYDEOS Spec.md` and not yet merged in here.
+- `CYDEOS Companion Spec.md` — BLE Companion protocol, v1 (recorder-only,
+  now implemented here too via the Recorder app's BLE hooks); v2
+  (generalized app control) is drafted in `CYDEOS Spec.md` and not yet
+  merged in here.
 
 ## License
 
