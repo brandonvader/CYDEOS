@@ -1,8 +1,10 @@
 # CYDEOS — Cheap Yellow Display Extendable Operating System
 
-**Status: pre-implementation scaffold.** No OS core or apps are built yet
-— see `CYDEOS Spec.md` for the full architecture and `src/*/README.md`
-files for what's planned where. This repo is the next step after
+**Status: M0 done, no apps yet.** The OS core services (shell/notification
+bar/settings shade, WiFi, BLE Companion transport, battery, clock) are
+ported and boot on both boards — see `CYDEOS Spec.md` for the full
+architecture and milestone plan. There is no Recorder app yet (M1): the
+launcher only offers Settings for now. This repo is the next step after
 [CYD Voice Recorder](https://github.com/brandonvader/CYD-Voice-Recorder),
 which stays as its own clean, working reference (and the source of every
 hardware finding this project inherits).
@@ -31,7 +33,18 @@ Same two boards as CYD-Voice-Recorder to start:
 ```
 src/
   boards/   per-board pins/geometry (board_config.h) — HAL surface
-  core/     OS core services (not yet implemented — M0)
+  core/     OS core services (M0, done):
+              identity      - CYDEOS-XXXX device name
+              display       - tft instance, backlight, touch
+              ui_widgets    - shared colors/layout/drawing helpers
+              keyboard      - generic on-screen keyboard widget
+              clock         - TZ/NTP + Settings > Time screen
+              battery       - sampling/trend/status/icon
+              wifi          - Settings > WiFi (scan/connect/saved networks)
+              ble_companion - pairing/GATT/framed protocol/transfer session,
+                              with hooks an app registers into (none yet)
+              shell         - notif bar, settings shade, gestures, launcher,
+                              Settings app's WiFi/Time top-level navigation
   apps/     built-in apps, recorder first (not yet implemented — M1)
 ```
 
