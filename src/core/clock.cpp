@@ -5,6 +5,7 @@
 #include <cstring>
 #include <ctime>
 #include <sys/time.h>
+#include <esp_sntp.h>
 
 #include "core/display.h"
 #include "core/ui_widgets.h"
@@ -109,6 +110,22 @@ void formatTimeString(int hour24, int minute, int second, bool includeSeconds, c
   }
 }
 
+// Diagnostic only - logs whenever the SNTP client actually lands a
+// correction, since syncClockFromNTP() itself is fire-and-forget and the
+// result (success, failure, or how long it took) was previously
+// completely invisible. Added after a real bug where the clock stayed
+// wrong for days despite WiFi connecting and syncClockFromNTP() visibly
+// being called each time - this is what's needed to tell "the sync never
+// lands" apart from "something else is wrong" instead of guessing.
+static void onNtpSynced(struct timeval *tv) {
+  time_t now = tv->tv_sec;
+  struct tm tmStruct;
+  localtime_r(&now, &tmStruct);
+  char buf[32];
+  strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &tmStruct);
+  Serial.printf("NTP sync landed: system clock corrected to %s (local)\n", buf);
+}
+
 void setupClock() {
   loadTimezoneFromNVS();
   loadTimeFormatFromNVS();
@@ -119,6 +136,8 @@ void setupClock() {
   tv.tv_sec = BUILD_LOCAL_EPOCH;
   tv.tv_usec = 0;
   settimeofday(&tv, nullptr);
+
+  sntp_set_time_sync_notification_cb(onNtpSynced);
 }
 
 void syncClockFromNTP() {

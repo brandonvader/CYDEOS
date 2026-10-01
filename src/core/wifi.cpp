@@ -476,17 +476,34 @@ static void checkWifiConnectResult() {
 }
 
 // Auto-connect (triggered from handleMainTouch when WiFi is switched on)
-// doesn't go through WIFI_CONNECTING/checkWifiConnectResult() at all - this
-// catches the status change live while sitting on the main screen instead.
+// doesn't go through WIFI_CONNECTING/checkWifiConnectResult() at all, so
+// this is what actually detects it - and it must run regardless of which
+// screen/app is active, not just while sitting on this one. WiFi
+// connectivity (and the NTP sync it triggers) is an OS-level concern, not
+// something that should depend on UI navigation.
+//
+// Bug fix (see CLAUDE.md): this used to `return` early unless
+// wifiScreen == WIFI_MAIN, the same as the other two checks in
+// wifiTick() below. Since the device boots straight into the Recorder
+// app (the default screen) and most usage never visits Settings > WiFi,
+// a background auto-connect's transition to WL_CONNECTED was never
+// observed, so syncClockFromNTP() never fired - the clock just silently
+// free-ran from the stale BUILD_LOCAL_EPOCH baked in at the last flash,
+// for days, drifting differently on each device. Now called unconditionally
+// every loop() via wifiBackgroundTick(); only the screen *redraw* stays
+// conditional on actually being on the WIFI_MAIN screen right now.
 static void checkWifiStatusChanged() {
-  if (wifiScreen != WIFI_MAIN) return;
   wl_status_t status = WiFi.status();
   if (status != lastKnownWifiStatus) {
     if (status == WL_CONNECTED && lastKnownWifiStatus != WL_CONNECTED) {
       syncClockFromNTP(); // covers auto-connect, which skips checkWifiConnectResult() entirely
       autoConnectPending = false;
     }
-    drawMain(); // also updates lastKnownWifiStatus
+    if (wifiScreen == WIFI_MAIN) {
+      drawMain(); // also updates lastKnownWifiStatus
+    } else {
+      lastKnownWifiStatus = status;
+    }
   }
 
   // Background auto-connect never goes through checkWifiConnectResult(), so
@@ -495,7 +512,7 @@ static void checkWifiStatusChanged() {
     forgetSavedNetwork(autoConnectSSID);
     Serial.printf("Auto-connect to %s timed out - forgot stale saved network\n", autoConnectSSID);
     autoConnectPending = false;
-    drawMain();
+    if (wifiScreen == WIFI_MAIN) drawMain();
   }
 }
 
@@ -584,5 +601,8 @@ void wifiHandleTouch(int x, int y) {
 void wifiTick() {
   checkWifiScanComplete();
   checkWifiConnectResult();
+}
+
+void wifiBackgroundTick() {
   checkWifiStatusChanged();
 }

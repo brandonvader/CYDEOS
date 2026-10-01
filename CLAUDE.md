@@ -293,6 +293,40 @@ PlatformIO + Arduino framework project. Two hardware targets, sharing one
 
 ### WiFi settings findings (board-agnostic - this code is shared)
 
+- **WiFi connectivity's status-change detection (and the NTP clock sync +
+  auto-connect-timeout handling it triggers) must run every loop()
+  iteration regardless of which app/screen is active - it must NOT be
+  folded into the Settings > WiFi screen's own `wifiTick()`, which only
+  runs while that screen is actually open.** This was a real bug, not a
+  hypothetical: `checkWifiStatusChanged()` lived inside `wifiTick()` and
+  `return`ed early unless `wifiScreen == WIFI_MAIN`, so the moment a user
+  toggled WiFi on and then navigated away (normal usage - the toggle
+  itself is async and the connection typically completes a few seconds
+  later), the completion was never observed and `syncClockFromNTP()` never
+  fired. Confirmed on real hardware: both boards' clocks silently stayed
+  wrong for *days* (frozen at whatever `BUILD_LOCAL_EPOCH` was baked in at
+  the last flash) despite WiFi connecting successfully every session - the
+  only thing that worked was staying on the WiFi screen until "Connected"
+  actually appeared. **Fixed** by splitting this into its own
+  `wifiBackgroundTick()` (`core/wifi.h`), called unconditionally from
+  `shell.cpp`'s `shellTick()` alongside `bleCompanionTick()`/
+  `recorderBackgroundTick()`, with only the screen *redraw* portion still
+  conditional on `wifiScreen == WIFI_MAIN`. A reasonable reminder to apply
+  the same scrutiny to anything else that looks like "a core OS-level
+  concern, gated on a specific screen being open" - WiFi/BLE/clock sync
+  should never depend on UI navigation.
+- **There is no success/failure visibility into whether an NTP sync
+  actually lands** - `syncClockFromNTP()`/`configTzTime()` is fire-and-
+  forget by design (ESP-IDF's SNTP client runs the actual exchange
+  asynchronously), and before this bug nothing logged whether it ever
+  completed, which made the bug above much harder to diagnose than it
+  needed to be (a correct date after a reflash doesn't prove NTP worked -
+  the build-time epoch fallback alone can produce that). **Added**
+  `sntp_set_time_sync_notification_cb()` (`<esp_sntp.h>`) in
+  `setupClock()`, logging `NTP sync landed: system clock corrected to
+  ... (local)` whenever a sync actually completes - keep this wired up,
+  it's the only way to tell "never synced" apart from "synced to the
+  wrong thing" without guessing.
 - **A password is only ever persisted to NVS once `WiFi.status() ==
   WL_CONNECTED` is actually observed** (using `WiFi.psk()` to recover the
   password rather than threading it through as state) — never at the

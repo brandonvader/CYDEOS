@@ -11,4 +11,14 @@
 void wifiInit(ExitToSettingsHomeFn onExitToHome);
 void wifiEnterSettings(); // draws the WiFi main screen
 void wifiHandleTouch(int x, int y);
-void wifiTick(); // call every loop() iteration; each internal check no-ops unless its own screen is showing
+void wifiTick(); // call only while the WiFi settings screen is active; each internal check no-ops unless its own sub-screen is showing
+
+// Call every loop() iteration, UNCONDITIONALLY (regardless of which app/
+// screen is active) - detects a background auto-connect's transition to
+// WL_CONNECTED and fires the NTP clock sync, and handles the auto-connect
+// timeout/forget-stale-network path. See CLAUDE.md: this used to be
+// folded into wifiTick() and only ran while the WiFi settings screen was
+// open, which silently broke clock sync for any device that boots
+// straight into another app (the Recorder app, by default) and never
+// visits Settings > WiFi.
+void wifiBackgroundTick();

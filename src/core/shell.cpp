@@ -344,6 +344,11 @@ void shellTick() {
   // shellRegisterRecorderApp()'s doc comment.
   if (recorderBackgroundTick) recorderBackgroundTick();
 
+  // WiFi connectivity (auto-connect detection + the NTP sync it triggers)
+  // is an OS-level concern, not tied to the WiFi settings screen being
+  // open - see CLAUDE.md on the clock-never-syncs bug this fixed.
+  wifiBackgroundTick();
+
   // BLE control works from any app (not gated on Settings being active).
   bleCompanionTick();
 
